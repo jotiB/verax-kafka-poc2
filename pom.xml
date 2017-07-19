@@ -5,24 +5,19 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>verax.ca</groupId>
-    <artifactId>verax-kafka-poc2</artifactId>
+    <artifactId>verax-kafka-stock-quotes</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>0.10.1.1</version>
+            <version>0.10.1.2</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>19.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.hdrhistogram</groupId>
-            <artifactId>HdrHistogram</artifactId>
-            <version>2.1.8</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -39,13 +34,6 @@
     		<artifactId>commons-lang</artifactId>
     		<version>2.6</version>
 		</dependency>
-		<dependency>
-    		<groupId>verax.ca</groupId>
-    		<artifactId>stockquote</artifactId>
-    		<version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/src/main/resources/stockquote-1.0.jar</systemPath>
-		</dependency>         
     </dependencies>
 
     <build>
@@ -86,15 +74,26 @@
             <plugin>
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
-                <version>1.1.0</version>
+                <version>1.4.1</version>
                 <configuration>
                     <!-- value of flags will be interpolated into the java invocation -->
                     <!-- as "java $flags -jar ..." -->
-                    <!--<flags></flags>-->
+                    <!--<flags>-Xmx1G</flags>-->
 
                     <!-- (optional) name for binary executable, if not set will just -->
                     <!-- make the regular jar artifact executable -->
-                    <programFile>verax-kafka-poc2</programFile>
+                    <programFile>kafka-stock-quotes</programFile>
+
+                    <!-- (optional) support other packaging formats than jar -->
+                    <!-- <allowOtherTypes>true</allowOtherTypes> -->
+
+                    <!-- (optional) name for a file that will define what script gets -->
+                    <!-- embedded into the executable jar.  This can be used to -->
+                    <!-- override the default startup script which is -->
+                    <!-- `#!/bin/sh -->
+                    <!--            -->
+                    <!-- exec java " + flags + " -jar "$0" "$@" -->
+                    <!--<scriptFile>src/packaging/postToKafka.sh</scriptFile>-->
                 </configuration>
 
                 <executions>

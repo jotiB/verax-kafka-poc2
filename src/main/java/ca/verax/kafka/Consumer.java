@@ -3,7 +3,6 @@ package ca.verax.kafka;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
-import org.HdrHistogram.Histogram;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -38,7 +37,7 @@ public class Consumer {
 			}
 			consumer = new KafkaConsumer<>(properties);
 		}
-		consumer.subscribe(Arrays.asList("poc-trx-2"));
+		consumer.subscribe(Arrays.asList("stock-quotes"));
 		int timeouts = 0;
 		// noinspection InfiniteLoopStatement
 		while (true) {
@@ -53,14 +52,17 @@ public class Consumer {
 			}			
 			for (ConsumerRecord<String, String> record : records) {
 				JsonNode msg = mapper.readTree(record.value());
+				String exchange = msg.get("exchange").asText();
+                String ticker = msg.get("ticker").asText();
 				String tradeDate = msg.get("tradeDate").asText();
-				double open = msg.get("open").asDouble();
-				double high = msg.get("high").asDouble();
-				double low = msg.get("low").asDouble();
-				double close = msg.get("close").asDouble();
-				int lastTradeValue = msg.get("lastTradeValue").asInt();
-				System.out.println("trade date = " + tradeDate + " open = " + open + " high = " + high + " low = " + low + " close = "
-						+ close + " lastTrade = " + lastTradeValue);
+				float open = msg.get("open").floatValue();
+				float high = msg.get("high").floatValue();
+				float low = msg.get("low").floatValue();
+				float close = msg.get("close").floatValue();
+				float volume = msg.get("volume").floatValue();
+				System.out.println("exchange = " + exchange + "ticker = " + ticker + " trade date = " + tradeDate +
+                        " open = " + open + " high = " + high + " low = " + low + " close = "
+						+ close + " lastTrade = " + volume);
 			}
 		}
 	}

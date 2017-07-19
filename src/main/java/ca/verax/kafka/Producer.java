@@ -5,19 +5,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Resources;
-import com.verax.feeds.StockQuote;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.InputStream;
+
 import java.sql.Timestamp;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.StringTokenizer;
+
+import java.util.*;
 
 /**
  * This producer will send a bunch of messages to topic "fast-messages". Every so often,
@@ -34,27 +32,42 @@ public class Producer {
             properties.load(props);
             producer = new KafkaProducer<>(properties);
         }
-    	String exchange = args[3];
+		String interval = args[1];
     	String period = args[2];
-    	String interval = args[1];
-    	StockQuote sQuote = new StockQuote();
-    	StringTokenizer symbolTokenizer = new StringTokenizer(args[4], ",");    	
-		while (symbolTokenizer.hasMoreTokens()) {
-			StringBuffer sb = new StringBuffer();
-			String symbol = (String)symbolTokenizer.nextElement();
+		String filePath = args[3];
+
+		BufferedReader br = new BufferedReader(new FileReader(filePath));
+    	int limit = Integer.parseInt(args[4]);
+		String fileLine = br.readLine();
+		while (fileLine != null) {
+			StringTokenizer symbolTokenizer = new StringTokenizer(fileLine, ",");
+			String exchange = (String)symbolTokenizer.nextToken();
+			String symbol = (String)symbolTokenizer.nextToken();
 			String stream = null;
 			try {
-				stream = sQuote.GetStockFeeds(symbol, exchange, period, interval);
+				stream = StockQuote.GetStockFeeds(symbol, exchange, period+"d", interval);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block				
 			}				    	
 			try {
 	            //StringTokenizer recordTokenizer = new StringTokenizer(_results, ",", false);
-	        	String lines[] = stream.split("\\|");	           
-	    		for  (int i=0; i < lines.length; i++) {    			
-	    			String jasonString = getStockQuoteAsJason(symbol,lines[i]);    
+
+				Timestamp timestamp = new Timestamp(new Date().getTime());
+				Calendar cal = Calendar.getInstance();
+				cal.setTimeInMillis(timestamp.getTime());
+				cal.add(Calendar.DAY_OF_MONTH, -Integer.parseInt(period));
+				Timestamp startTS = new Timestamp(cal.getTime().getTime());
+				System.out.println("Start Date = " + startTS);
+				String lines[] = stream.split("\\|");
+				System.out.println("Line size = " + lines.length );
+				Timestamp tradeDate = startTS;
+	    		for  (int i=0; i < limit; i++) {
+					cal.setTimeInMillis(tradeDate.getTime());
+					cal.add(Calendar.SECOND, Integer.parseInt(interval));
+					tradeDate = new Timestamp(cal.getTime().getTime());
+	    			String jasonString = getStockQuoteAsJason(exchange,symbol,lines[i],tradeDate );
 	    			System.out.println("Json String = " + jasonString + "\n");
-	    			ProducerRecord record = new ProducerRecord("poc-trx-2",jasonString);
+	    			ProducerRecord record = new ProducerRecord("stock-quotes",jasonString);
 	                producer.send(record);
 	    		}             
 	        } catch (Exception e) {
@@ -62,26 +75,45 @@ public class Producer {
 	        } finally {
 	            //producer.close();
 	        }
+			fileLine = br.readLine();
+			Thread.sleep(60000);
 		} 
     }
 
-	private static String getStockQuoteAsJason(String symbol, String symbolStream) throws JsonProcessingException, JsonGenerationException, JsonMappingException {
+	private static String getStockQuoteAsJason(String exchange, String symbol, String symbolStream, Timestamp tradeDate) throws JsonProcessingException, JsonGenerationException, JsonMappingException {
 		StringTokenizer attributeTokenizer = new StringTokenizer(symbolStream, ",");
-		String attributeNames[] = {"tradeDate", "open", "high", "low", "close", "lastTradeValue"};
+		String attributeNames[] = {"lastTradeDate", "open", "high", "low", "close", "volume"};
 		int i=0;
-		Map recordMap = new HashMap();
-		recordMap.put("ticker", symbol);
+		StockQuote qt = new StockQuote();
+		qt.setTicker(symbol);
+		qt.setExchange(exchange);
 		while (attributeTokenizer.hasMoreTokens()) {
 			String attributeValue = (String)attributeTokenizer.nextElement();
 			String attributeName = attributeNames[i];
-			if (attributeName.equals("tradeDate")) {
-				Timestamp attributeTSValue = new Timestamp(new Date().getTime());				
-				recordMap.put(attributeName, attributeTSValue.toString());
-			} else
-			recordMap.put(attributeName, attributeValue);
+			switch(attributeName) {
+				case "lastTradeDate" :
+					qt.setLastTradeDate(tradeDate);
+					break;
+				case "open" :
+					qt.setOpen(Float.parseFloat(attributeValue));
+					break;
+				case "high" :
+					qt.setHigh(Float.parseFloat(attributeValue));
+					break;
+				case "low" :
+					qt.setLow(Float.parseFloat(attributeValue));
+					break;
+				case "close" :
+					qt.setClose(Float.parseFloat(attributeValue));
+					break;
+				case "volume" :
+					qt.setVolume(Float.parseFloat(attributeValue));
+					break;
+				default :
+			}
 			i++;
 		} 
-		String mapAsJson = new ObjectMapper().writeValueAsString(recordMap);
+		String mapAsJson = new ObjectMapper().writeValueAsString(qt);
 		
 		return mapAsJson;
 	}
